@@ -1,5 +1,5 @@
 const telebot = require('telebot')
-const bot = new telebot('627868396:AAHl1hwhey06dPxahIHpQedetpm5wrlS7V8')
+const bot = new telebot('token')
 const moment  =  require('moment')
 
 const MongoClient = require('mongodb').MongoClient
