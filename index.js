@@ -60,7 +60,7 @@ bot.on(/^\/changeName (.+)$/, (msg, props) => {
     const text = props.match[1];
     console.log(text)
     updateName(msg.from.id, text)
-    return bot.sendMessage(msg.from.id, 'nome modificado para :' + text )
+    return bot.sendMessage(msg.from.id, 'nome modificado para : ' + text )
 });
 
 bot.on(/^\/creatEvent (.+)$/, (msg, props) => {
