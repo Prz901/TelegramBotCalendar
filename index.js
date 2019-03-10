@@ -1,6 +1,6 @@
 const telebot = require('telebot')
 const bot = new telebot('token')
-const moment  =  require('moment')
+const moment = require('moment')
 
 const MongoClient = require('mongodb').MongoClient
 const url = 'mongodb://localhost:27017/'
@@ -33,6 +33,7 @@ bot.on('/luu', (msg) => {
     console.log('\n')
 })
 
+
 bot.on('/hello', (msg) => {
     return bot.sendMessage(msg.from.id, `Hello, ${msg.from.first_name}!`)
 })
@@ -60,25 +61,23 @@ bot.on(/^\/changeName (.+)$/, (msg, props) => {
     const text = props.match[1];
     console.log(text)
     updateName(msg.from.id, text)
-    return bot.sendMessage(msg.from.id, 'nome modificado para : ' + text )
+    return bot.sendMessage(msg.from.id, 'nome modificado para : ' + text)
 });
 
 bot.on(/^\/creatEvent (.+)$/, (msg, props) => {
     const text = props.match[1];
     const eventText = text.split(', ')
     const event = {
-        eventName: eventText[0],
-        eventTime: eventText[1]
+        name: eventText[0],
+        date: eventText[1],
+        hour: eventText[2]
     }
     //Date.now()
-    const time = transform(1000000)
-    console.log(time)
-    console.log(event)
-    const date  = moment()
-    console.log(date)
-    addEvent(msg.from.id, {name : eventText[0], time: eventText[1]})
+    addEvent(msg.from.id, event)
 
 });
+
+
 // deleta os eventos 
 bot.on(/^\/deleteEvent (.+)$/, (msg, props) => {
     const text = props.match[1];
@@ -88,21 +87,53 @@ bot.on(/^\/deleteEvent (.+)$/, (msg, props) => {
 
 // Le os eventos 
 bot.on('/events', (msg) => {
-    findUser(msg.from.id).then((resp)=>{
+    findUser(msg.from.id).then((resp) => {
         console.log(resp[0].events)
-        let  response = ''
+        let response = ''
         resp[0].events.forEach(element => {
             /*
             string com concatenação
             response += element.eventName + '  '+ element.eventTime +`\n`
             string sem precisar de uma concatenação
             */
-            response += `Nome do evento: ${element.eventName} Tempo do evento: ${element.eventTime} \n` 
+            response += `Nome do evento: ${element.eventName} Tempo do evento: ${element.eventTime} \n`
         });
-        return bot.sendMessage(msg.from.id, response )
+        return bot.sendMessage(msg.from.id, response)
     })
 
-});
+})
+bot.on('/leTodosEvents', (msg) => {
+    let today = new Date()
+    // pega o dia
+    let dd = today.getDate()
+    // pega o mes
+    let mm = today.getMonth() + 1
+    // pega o ano
+    let yy = today.getFullYear()
+
+    if (dd < 10) {
+        dd = '0' + dd;
+    }
+
+    if (mm < 10) {
+        mm = '0' + mm;
+    }
+    // conversao a partir do mes/dia/ano -  "datagem americana".
+    today = dd + '/' + mm + '/' + yy;
+
+    readEvents().then(resp => {
+        let eventsToday = []
+        resp.forEach(elem => {
+            //console.log(elem.events)
+            const aux = elem.events.filter(element => {
+                return element.eventDate == today
+            })
+            eventsToday = eventsToday.concat(aux)
+        })
+        console.log(eventsToday)
+    })
+
+})
 
 // cria o usuario no banco 
 function insertUser(obj) {
@@ -145,50 +176,86 @@ function findUser(id) {
 }
 
 // update
-function updateName(id, text){
+function updateName(id, text) {
     MongoClient.connect(url, { useNewUrlParser: true }, (err, db) => {
         if (err) throw err
         const dbo = db.db('calendar')
-        const query  = {id: id}
-        dbo.collection('users').updateOne(query, {$set:{'name':text}}, (err, res) => {
-          if (err) throw err
-          db.close()
+        const query = { id: id }
+        dbo.collection('users').updateOne(query, { $set: { 'name': text } }, (err, res) => {
+            if (err) throw err
+            db.close()
         })
     })
 }
-function update(id, querry){
+function update(id, querry) {
     MongoClient.connect(url, { useNewUrlParser: true }, (err, db) => {
         if (err) throw err
         const dbo = db.db('calendar')
         dbo.collection('users').updateOne(id, querry, (err, res) => {
-          if (err) throw err
-          db.close()
+            if (err) throw err
+            db.close()
         })
-      })
-}
-// funcao que transforma o tempo 
-function transform (milisecond){
-    console.log(milisecond)
-    // um milisegundo = 1000 segundos/ 1 segundo  =  1000 milisegundos / 60 segundos  =  1 minuto / 60 minutos  = 1 hora 
-    return milisecond/1000/60/60
-}
-// funcao que adiciona o evento na  array de evento 
-function addEvent(id, event){
-    findUser(id)
-    .then(() => {
-      update({ id: id }, { $push: { events: { $each: [{ eventName: event.name , eventTime : event.time }] } } })
     })
 }
+// funcao que transforma o tempo 
+function transform(milisecond) {
+    console.log(milisecond)
+    // um milisegundo = 1000 segundos/ 1 segundo  =  1000 milisegundos / 60 segundos  =  1 minuto / 60 minutos  = 1 hora 
+    return milisecond / 1000 / 60 / 60
+}
+// funcao que adiciona o evento na  array de evento 
+function addEvent(id, event) {
+    findUser(id)
+        .then(() => {
+            update({ id: id }, { $push: { events: { $each: [{ eventName: event.name, eventDate: event.date, eventHour: event.hour }] } } })
+        })
+}
 // funcao que deleta eventos 
-function deleteEvent(id, eventName){
+function deleteEvent(id, eventName) {
     console.log(id)
     console.log(eventName)
     findUser(id)
-      .then(() => {
-        update({ id: id }, { $pull: { events: { eventName: eventName } } })
-      })
+        .then(() => {
+            update({ id: id }, { $pull: { events: { eventName: eventName } } })
+        })
+}
+function readEvents() {
+    return new Promise((resolve, reject) => {
+        MongoClient.connect(url, { useNewUrlParser: true }, (err, db) => {
+            if (err) throw err
+            const dbo = db.db('calendar')
+            dbo.collection('users').find({}).toArray((err, result) => {
+                if (err) {
+                    reject(err)
+                    throw err
+                }
+                resolve(result)
+            })
+            db.close()
+        })
+    })
 }
 
+
+
+
+
+
+// verificar se o evento ja passou (se o evento ja passou destruir o evento)
+// avisar com antecedencia o evento do cara e quantas horas faltam
+/*
+lu tem um evento as 18 horas =
+
+o bot vai avisar o lu que seu evento as 18 horas esta chegando.
+*/
+
+/*
+função setInverval que recebe 2 argumentos uma função de callback e um integer que representa o tempo em milisegundos.
+
+setInterval(_=>{
+    console.log('caralho fe para de me aloprar porra')
+}, 5000)
+*/
 
 
 
