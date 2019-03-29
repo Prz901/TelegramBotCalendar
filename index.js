@@ -64,15 +64,15 @@ bot.on(/^\/changeName (.+)$/, (msg, props) => {
     return bot.sendMessage(msg.from.id, 'nome modificado para : ' + text)
 });
 
-bot.on(/^\/creatEvent (.+)$/, (msg, props) => {
+bot.on(/^\/addEvent (.+)$/, (msg, props) => {
     const text = props.match[1];
     const eventText = text.split(', ')
     const event = {
+        eventIdUser: msg.from.id,
         name: eventText[0],
         date: eventText[1],
         hour: eventText[2]
     }
-    //Date.now()
     addEvent(msg.from.id, event)
 
 });
@@ -96,44 +96,27 @@ bot.on('/events', (msg) => {
             response += element.eventName + '  '+ element.eventTime +`\n`
             string sem precisar de uma concatenação
             */
-            response += `Nome do evento: ${element.eventName} Tempo do evento: ${element.eventTime} \n`
+            response += `Nome do evento: ${element.eventName} Tempo do evento: ${element.eventDate} Hora do Evento: ${element.eventHour} \n`
         });
         return bot.sendMessage(msg.from.id, response)
     })
 
 })
-bot.on('/leTodosEvents', (msg) => {
-    let today = new Date()
-    // pega o dia
-    let dd = today.getDate()
-    // pega o mes
-    let mm = today.getMonth() + 1
-    // pega o ano
-    let yy = today.getFullYear()
-
-    if (dd < 10) {
-        dd = '0' + dd;
-    }
-
-    if (mm < 10) {
-        mm = '0' + mm;
-    }
-    // conversao a partir do mes/dia/ano -  "datagem americana".
-    today = dd + '/' + mm + '/' + yy;
-
+bot.on('/leTodosEventos', (msg) => {
+    // funcao que le todos os eventos e avisa sobre todos os eventos cadastrados pelo usuario.
     readEvents().then(resp => {
-        let eventsToday = []
-        resp.forEach(elem => {
-            //console.log(elem.events)
-            const aux = elem.events.filter(element => {
-                return element.eventDate == today
+        resp.forEach(elem =>{
+            const auxiliar  = elem.events.filter(element =>{
+                return element.eventIdUser == msg.from.id
             })
-            eventsToday = eventsToday.concat(aux)
-        })
-        console.log(eventsToday)
+            auxiliar.forEach(element=>{
+                bot.sendMessage(msg.from.id,'Nome do evento: '+element.eventName + ' \n Data do evento: ' + element.eventDate + ' \n Hora do evento: ' + element.eventHour)
+            })
+            
+        })  
     })
-
 })
+
 
 // cria o usuario no banco 
 function insertUser(obj) {
@@ -207,7 +190,7 @@ function transform(milisecond) {
 function addEvent(id, event) {
     findUser(id)
         .then(() => {
-            update({ id: id }, { $push: { events: { $each: [{ eventName: event.name, eventDate: event.date, eventHour: event.hour }] } } })
+            update({ id: id }, { $push: { events: { $each: [{ eventIdUser: id, eventName: event.name, eventDate: event.date, eventHour: event.hour }] } } })
         })
 }
 // funcao que deleta eventos 
@@ -235,17 +218,72 @@ function readEvents() {
         })
     })
 }
+// funçao que pega o dia atual 
+function diaAtual() {
+    let today = new Date()
+    // pega o dia
+    let dd = today.getDate()
+    // pega o mes
+    let mm = today.getMonth() + 1
+    // pega o ano
+    let yy = today.getFullYear()
 
+    if (dd < 10) {
+        dd = '0' + dd;
+    }
 
+    if (mm < 10) {
+        mm = '0' + mm;
+    }
+    // conversao a partir do dia/mes/ano -  "datagem brasileira".
+    today = dd + '/' + mm + '/' + yy;
+    return today
+}
+function horaAtual() {
+    // função que verifica a hora atual   
+    let dateHour = new Date()    
+    // pega a hora e minutos e coloca numa string
+    let currentHour =  ' '+ dateHour.getHours() + ':'+ dateHour.getMinutes()
+    
+    return currentHour
+}
+// função que pega a hora atual e verifica os eventos que estao proximos e avisa para o usuario do evento
+// verificar o tempo do evento da pessoa com o tempo atual depois verificar quantas horas faltam 
+function diferençaHoras(){
+    const today = diaAtual()
+    let eventsToday = []
+    resp.forEach(elem => {
+        const aux = elem.events.filter(element => {
+            return element.eventDate == today
+        })
+        eventsToday = eventsToday.concat(aux)
+    })
+    
+    let hora1 = '08:40'
+    let hora2 = '10:30'
 
+    let horaInicial =  hora1.split(':')
+    let horaFinal =  hora2.split(':')
 
+    horasTotal = parseInt(horaFinal[0],10) - parseInt(horaInicial[0],10)
+    minutoTotal = parseInt(horaFinal[1],10) - parseInt(horaInicial[1],10)
+    
+    if(minutoTotal < 0 ){
+        horasTotal -=1
+        minutoTotal += 60
+    }
 
+    let hora = horasTotal + ':' + minutoTotal
+    
+    if(hora > '1:50'){
+        console.log('passou da hora')
+    }
+
+}
 
 // verificar se o evento ja passou (se o evento ja passou destruir o evento)
 // avisar com antecedencia o evento do cara e quantas horas faltam
 /*
-lu tem um evento as 18 horas =
-
 o bot vai avisar o lu que seu evento as 18 horas esta chegando.
 */
 
